@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BİSTDATA PORTFÖY TAKİP v17.1</title>
+    <title>BİSTDATAS PORTFÖY TAKİP v17.2</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { 
@@ -45,15 +45,15 @@
         .main-grid { display: grid; grid-template-columns: 320px 1fr 320px; gap: 20px; }
         .panel { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); height: fit-content; box-sizing: border-box; overflow: hidden; }
         
-        /* MOBİL DÜZENLEMELER (Sadece 3 Kutucuk ve Taşma Odaklı) */
+        /* MOBİL DÜZELTME */
         @media (max-width: 1100px) {
             body { padding: 10px; }
-            .header-panel { grid-template-columns: 1fr; gap: 10px; } /* Kutular alt alta */
-            .main-grid { grid-template-columns: 1fr; gap: 15px; } /* Paneller alt alta */
+            .header-panel { grid-template-columns: 1fr; gap: 10px; }
+            .main-grid { grid-template-columns: 1fr; gap: 15px; }
             .brand h1 { font-size: 1.8rem; }
             .s-val { font-size: 1.5rem; }
             .theme-btn { margin-left: 0; width: 100%; max-width: 100%; }
-            .table-wrapper { overflow-x: auto; width: 100%; }
+            .table-wrapper { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
         }
 
         table { width: 100%; border-collapse: collapse; }
@@ -77,7 +77,7 @@
     <div class="header-panel">
         <div class="s-card"><h4>PORTFÖY DEĞERİ</h4><div id="totalVal" class="s-val">0</div></div>
         <div class="brand">
-            <h1>BİSTDATA</h1>
+            <h1>BİSTDATAS</h1>
             <p>PORTFÖY TAKİP PROGRAMI</p>
         </div>
         <div class="s-card"><h4>NET KÂR / ZARAR</h4><div id="totalPnl" class="s-val">0</div></div>
@@ -150,8 +150,6 @@ function renderModes() {
 
     if(modes.length < MAX_MODES) {
         html += `<button onclick="addNewMode()" style="width:auto; padding:0 15px; height:38px; background:none; border:2px dashed var(--border); color:var(--text); cursor:pointer; border-radius:8px; font-size:12px;">+ Yeni (${modes.length}/${MAX_MODES})</button>`;
-    } else {
-        html += `<span style="font-size:10px; color:var(--loss); font-weight:bold; margin-left:10px;">MAKS. MOD (7)</span>`;
     }
     bar.innerHTML = html;
 }
@@ -190,6 +188,8 @@ function renderTable() {
 
     for (const [sym, d] of Object.entries(summary)) {
         const remLot = d.buyLot - d.sellLot;
+        if(remLot <= 0 && d.history.length > 0 && (d.rev - d.cost) === 0) continue; 
+
         const curP = livePrices[sym] || 0;
         const val = remLot * curP;
         const nPnl = (d.rev + val) - d.cost;
@@ -209,7 +209,7 @@ function renderTable() {
                 <td style="color:#fbbf24; font-weight:bold;">${fmtFloat.format(curP)}</td>
                 <td>${fmtInt.format(val)}</td>
                 <td class="${nPnl >= 0 ? 'text-profit' : 'text-loss'}">${fmtInt.format(nPnl)}</td>
-                <td>${breakEven <= 0 ? '<span style="color:var(--zero); font-weight:bold;">💎 SIFIR</span>' : ''}</td>
+                <td>${breakEven <= 0 && remLot > 0 ? '<span style="color:var(--zero); font-weight:bold;">💎 SIFIR</span>' : ''}</td>
             </tr>
             <tr id="${rowId}" class="details-row" style="display: ${isPanelOpen ? 'table-row' : 'none'}">
                 <td colspan="7">
@@ -253,7 +253,7 @@ function updateChart(data) {
         });
     }
     const total = data.values.reduce((a,b) => a+b, 0);
-    document.getElementById('chartLegend').innerHTML = data.labels.map((l, i) => `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>● ${l}</span><b>%${((data.values[i]/total)*100).toFixed(1)}</b></div>`).join('');
+    document.getElementById('chartLegend').innerHTML = data.labels.map((l, i) => `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>● ${l}</span><b>%${total > 0 ? ((data.values[i]/total)*100).toFixed(1) : 0}</b></div>`).join('');
 }
 
 function addNewMode() { 
@@ -264,22 +264,21 @@ function addNewMode() {
 }
 function switchMode(id) { activeModeId = id; localStorage.setItem('bist_active_mode', id); openDetails.clear(); renderModes(); renderTable(); }
 function renameMode(id, e) { e.stopPropagation(); const newName = prompt("Portföy Adı:", modes.find(m => m.id === id).name); if(newName) { modes.find(m => m.id === id).name = newName; saveAll(); renderModes(); } }
-function deleteMode(id, e) { e.stopPropagation(); if(confirm("Mod silinsin mi?")) { modes = modes.filter(m => m.id !== id); activeModeId = modes[0].id; saveAll(); renderModes(); renderTable(); } }
+function deleteMode(id, e) { e.stopPropagation(); if(confirm("Mod silinsin mi?")) { modes = modes.filter(m => m.id !== id); if(modes.length === 0) modes = [{ id: 'm1', name: 'Ana Portföy', data: [] }]; activeModeId = modes[0].id; saveAll(); renderModes(); renderTable(); } }
 function saveAll() { localStorage.setItem('bist_modes', JSON.stringify(modes)); }
+
 function addTransaction() {
     const sym = document.getElementById('symbol').value.trim().toUpperCase();
     const type = document.getElementById('type').value;
     const lot = parseFloat(document.getElementById('lot').value);
     const prc = parseFloat(document.getElementById('price').value);
-
+    
     if(!sym || isNaN(lot) || isNaN(prc)) return;
 
-    // --- STOK KONTROLÜ BAŞLANGIÇ ---
+    // STOK KONTROLÜ
     if (type === 'sell') {
         const currentMode = modes.find(m => m.id === activeModeId);
         let totalOwned = 0;
-        
-        // Bu hissedeki mevcut lot sayısını hesapla
         currentMode.data.forEach(t => {
             if (t.sym === sym) {
                 if (t.type === 'buy') totalOwned += t.lot;
@@ -288,30 +287,22 @@ function addTransaction() {
         });
 
         if (lot > totalOwned) {
-            alert(`Hata: Elinizde sadece ${totalOwned} lot ${sym} var. ${lot} lot satamazsınız!`);
-            return; // Fonksiyonu burada durdur, kaydetme.
+            alert(`Hata: Elinizde sadece ${totalOwned} lot ${sym} var!`);
+            return;
         }
     }
-    // --- STOK KONTROLÜ BİTİŞ ---
 
     const m = modes.find(m => m.id === activeModeId);
-    m.data.push({ 
-        id: Date.now(), 
-        sym, 
-        type, 
-        lot, 
-        prc, 
-        time: new Date().toLocaleString('tr-TR') 
-    });
+    m.data.push({ id: Date.now(), sym, type, lot, prc, time: new Date().toLocaleString('tr-TR') });
     
-    saveAll(); 
-    renderTable();
-    
-    // Formu temizle
+    // Formu Temizle
     document.getElementById('symbol').value = "";
     document.getElementById('lot').value = "";
     document.getElementById('price').value = "";
+    
+    saveAll(); renderTable();
 }
+
 function deleteTransaction(id) { if(confirm("Silinsin mi?")) { const m = modes.find(m => m.id === activeModeId); m.data = m.data.filter(t => t.id !== id); saveAll(); renderTable(); } }
 
 renderModes();
