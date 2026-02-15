@@ -267,20 +267,51 @@ function renameMode(id, e) { e.stopPropagation(); const newName = prompt("Portf�
 function deleteMode(id, e) { e.stopPropagation(); if(confirm("Mod silinsin mi?")) { modes = modes.filter(m => m.id !== id); activeModeId = modes[0].id; saveAll(); renderModes(); renderTable(); } }
 function saveAll() { localStorage.setItem('bist_modes', JSON.stringify(modes)); }
 function addTransaction() {
-    const sym = document.getElementById('symbol').value.trim();
+    const sym = document.getElementById('symbol').value.trim().toUpperCase();
     const type = document.getElementById('type').value;
     const lot = parseFloat(document.getElementById('lot').value);
     const prc = parseFloat(document.getElementById('price').value);
-    if(!sym || isNaN(lot) || isNaN(prc)) return;
-    const m = modes.find(m => m.id === activeModeId);
-    m.data.push({ id: Date.now(), sym, type, lot, prc, time: new Date().toLocaleString('tr-TR') });
-    saveAll(); renderTable();
-}
-function deleteTransaction(id) { if(confirm("Silinsin mi?")) { const m = modes.find(m => m.id === activeModeId); m.data = m.data.filter(t => t.id !== id); saveAll(); renderTable(); } }
 
-renderModes();
-setInterval(fetchPrices, 5000);
-window.onload = fetchPrices;
+    if(!sym || isNaN(lot) || isNaN(prc)) return;
+
+    // --- STOK KONTROLÜ BAŞLANGIÇ ---
+    if (type === 'sell') {
+        const currentMode = modes.find(m => m.id === activeModeId);
+        let totalOwned = 0;
+        
+        // Bu hissedeki mevcut lot sayısını hesapla
+        currentMode.data.forEach(t => {
+            if (t.sym === sym) {
+                if (t.type === 'buy') totalOwned += t.lot;
+                else totalOwned -= t.lot;
+            }
+        });
+
+        if (lot > totalOwned) {
+            alert(`Hata: Elinizde sadece ${totalOwned} lot ${sym} var. ${lot} lot satamazsınız!`);
+            return; // Fonksiyonu burada durdur, kaydetme.
+        }
+    }
+    // --- STOK KONTROLÜ BİTİŞ ---
+
+    const m = modes.find(m => m.id === activeModeId);
+    m.data.push({ 
+        id: Date.now(), 
+        sym, 
+        type, 
+        lot, 
+        prc, 
+        time: new Date().toLocaleString('tr-TR') 
+    });
+    
+    saveAll(); 
+    renderTable();
+    
+    // Formu temizle
+    document.getElementById('symbol').value = "";
+    document.getElementById('lot').value = "";
+    document.getElementById('price').value = "";
+}
 </script>
 </body>
 </html>
