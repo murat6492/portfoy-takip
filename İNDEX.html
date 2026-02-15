@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>BİSTDATA PORTFÖY TAKİP v17</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { 
+            --primary: #2563eb; --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; 
+            --profit: #22c55e; --loss: #ef4444; --zero: #0ea5e9; --border: #334155;
+        }
+
+        body.light-mode {
+            --bg: #f8fafc; --card: #ffffff; --text: #1e293b; --border: #cbd5e1;
+        }
+
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding: 20px; margin: 0; transition: background 0.3s; }
+        .container { max-width: 1500px; margin: 0 auto; }
+        
+        /* HEADER - ARKA PLAN KUTULARLA AYNI, YAZI MAVİ */
+        .header-panel { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 20px; margin-bottom: 20px; align-items: center; }
+        
+        .brand { 
+            background: var(--card);
+            padding: 25px; 
+            border-radius: 12px; 
+            text-align: center; 
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        .brand h1 { margin: 0; font-size: 2.3rem; letter-spacing: 4px; font-weight: 900; color: #3b82f6; }
+        .brand p { margin: 5px 0 0; font-size: 13px; letter-spacing: 2px; color: #60a5fa; font-weight: bold; text-transform: uppercase; }
+
+        .s-card { background: var(--card); padding: 20px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
+        .s-val { font-size: 1.8rem; font-weight: bold; margin-top: 10px; }
+
+        /* MODLAR VE SABİT TEMA BUTONU */
+        .modes-bar { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; height: 45px; }
+        .mode-tab { background: var(--card); padding: 10px 18px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border); display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .mode-tab.active { background: var(--primary); color: white; border-color: #60a5fa; }
+        
+        /* SABİT BOYUTLU TEMA BUTONU */
+        .theme-btn { 
+            min-width: 160px; /* Boyut sabitlendi */
+            max-width: 160px;
+            height: 42px; 
+            background: var(--card); 
+            border: 1px solid var(--border); 
+            color: var(--text); 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            margin-left: auto; 
+            font-size: 13px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+        }
+
+        .main-grid { display: grid; grid-template-columns: 320px 1fr 320px; gap: 20px; }
+        .panel { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); height: fit-content; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px 10px; color: #94a3b8; font-size: 11px; border-bottom: 2px solid var(--border); }
+        td { padding: 14px 10px; border-bottom: 1px solid var(--border); font-size: 14px; }
+        
+        .text-profit { color: var(--profit) !important; font-weight: bold; }
+        .text-loss { color: var(--loss) !important; font-weight: bold; }
+        
+        input, select, button { width: 100%; padding: 12px; margin-top: 8px; background: #0f172a; border: 1px solid #475569; border-radius: 6px; color: white; box-sizing: border-box; }
+        body.light-mode input, body.light-mode select { background: #fff; color: #000; border: 1px solid #cbd5e1; }
+        
+        .details-row { background: rgba(0,0,0,0.15); display: none; }
+        .ana-para-info { background: var(--primary); color: white; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; font-size: 13px; text-align: center; }
+        .btn-mini-delete { background: none; border: 1px solid var(--loss); color: var(--loss); width: auto; font-size: 10px; padding: 3px 7px; cursor: pointer; border-radius: 4px; }
+    </style>
+</head>
+<body class="panel-row-tek">
+
+<div class="container">
+    <div class="header-panel">
+        <div class="s-card"><h4>PORTFÖY DEĞERİ</h4><div id="totalVal" class="s-val">0</div></div>
+        <div class="brand">
+            <h1>BİSTDATAS</h1>
+            <p>PORTFÖY TAKİP PROGRAMI</p>
+        </div>
+        <div class="s-card"><h4>NET KÂR / ZARAR</h4><div id="totalPnl" class="s-val">0</div></div>
+    </div>
+
+    <div class="modes-bar">
+        <div id="modesBar" style="display:flex; gap:10px; align-items:center;"></div>
+        <button class="theme-btn" onclick="toggleTheme()" id="themeBtnText">Gündüz Modu</button>
+    </div>
+
+    <div class="main-grid">
+        <div class="panel">
+            <h3>İşlem Kaydı</h3>
+            <input type="text" id="symbol" placeholder="HİSSE KODU" onkeyup="this.value=this.value.toUpperCase()">
+            <select id="type"><option value="buy">ALIŞ (+)</option><option value="sell">SATIŞ (-)</option></select>
+            <input type="number" id="lot" placeholder="LOT">
+            <input type="number" id="price" step="0.01" placeholder="FİYAT">
+            <button style="background:var(--primary); border:none; font-weight:bold; cursor:pointer; margin-top:15px;" onclick="addTransaction()">KAYDET</button>
+            <div id="syncStatus" style="font-size: 10px; margin-top: 15px; color: #94a3b8; text-align: center;">Yükleniyor...</div>
+        </div>
+
+        <div class="panel">
+            <h3>Portföy Detayı</h3>
+            <table>
+                <thead>
+                    <tr><th>Hisse</th><th>Lot</th><th>Maliyet</th><th>Güncel</th><th>Tutar</th><th>Net K/Z</th><th>Durum</th></tr>
+                </thead>
+                <tbody id="portfolioBody"></tbody>
+            </table>
+        </div>
+
+        <div class="panel">
+            <h3>Dağılım</h3>
+            <div style="height:250px;"><canvas id="portfolioChart"></canvas></div>
+            <div id="chartLegend" style="margin-top: 20px; font-size: 11px;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+let modes = JSON.parse(localStorage.getItem('bist_modes')) || [{ id: 'm1', name: 'Ana Portföy', data: [] }];
+let activeModeId = localStorage.getItem('bist_active_mode') || 'm1';
+let livePrices = {};
+let myChart = null;
+let openDetails = new Set();
+const MAX_MODES = 7; // Mod sınırı
+
+const fmtInt = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 });
+const fmtFloat = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function toggleTheme() {
+    document.body.classList.toggle('light-mode');
+    const isLight = document.body.classList.contains('light-mode');
+    document.getElementById('themeBtnText').innerText = isLight ? 'Gece Modu' : 'Gündüz Modu';
+    localStorage.setItem('bist_theme', isLight ? 'light' : 'dark');
+}
+if(localStorage.getItem('bist_theme') === 'light') toggleTheme();
+
+function renderModes() {
+    const bar = document.getElementById('modesBar');
+    let html = modes.map(m => `
+        <div class="mode-tab ${m.id === activeModeId ? 'active' : ''}" onclick="switchMode('${m.id}')">
+            <span>${m.name}</span>
+            <small onclick="renameMode('${m.id}', event)" style="margin-left:8px; opacity:0.6;">✎</small>
+            ${modes.length > 1 ? `<small onclick="deleteMode('${m.id}', event)" style="color:var(--loss); margin-left:8px;">✕</small>` : ''}
+        </div>
+    `).join('');
+
+    // Eğer mod sayısı 7'den azsa ekleme butonunu göster
+    if(modes.length < MAX_MODES) {
+        html += `<button onclick="addNewMode()" style="width:auto; padding:0 15px; height:38px; background:none; border:2px dashed var(--border); color:var(--text); cursor:pointer; border-radius:8px; font-size:12px;">+ Yeni (${modes.length}/${MAX_MODES})</button>`;
+    } else {
+        html += `<span style="font-size:10px; color:var(--loss); font-weight:bold; margin-left:10px;">MAKS. MOD (7)</span>`;
+    }
+    
+    bar.innerHTML = html;
+}
+
+async function fetchPrices() {
+    try {
+        const res = await fetch('temelperformans.csv?v=' + Date.now());
+        const text = await res.text();
+        text.split(/\r?\n/).forEach((row, i) => {
+            if(i === 0 || !row.trim()) return;
+            const cols = row.trim().split(/\s{1,}|;|\t/);
+            if(cols.length >= 2) {
+                const sym = cols[0].trim().toUpperCase();
+                livePrices[sym] = parseFloat(cols[1].replace(/\./g, '').replace(',', '.'));
+            }
+        });
+        document.getElementById('syncStatus').innerText = "Veri Akışı: " + new Date().toLocaleTimeString();
+        renderTable();
+    } catch (e) {}
+}
+
+function renderTable() {
+    const currentMode = modes.find(m => m.id === activeModeId);
+    const summary = {};
+    currentMode.data.forEach(t => {
+        if(!summary[t.sym]) summary[t.sym] = { cost: 0, buyLot: 0, rev: 0, sellLot: 0, history: [] };
+        summary[t.sym].history.push(t);
+        if(t.type === 'buy') { summary[t.sym].cost += (t.lot * t.prc); summary[t.sym].buyLot += t.lot; }
+        else { summary[t.sym].rev += (t.lot * t.prc); summary[t.sym].sellLot += t.lot; }
+    });
+
+    const body = document.getElementById('portfolioBody');
+    body.innerHTML = '';
+    let gVal = 0, gPnl = 0;
+    let chartD = { labels: [], values: [] };
+
+    for (const [sym, d] of Object.entries(summary)) {
+        const remLot = d.buyLot - d.sellLot;
+        const curP = livePrices[sym] || 0;
+        const val = remLot * curP;
+        const nPnl = (d.rev + val) - d.cost;
+        if(remLot > 0) { gVal += val; chartD.labels.push(sym); chartD.values.push(val); }
+        gPnl += nPnl;
+
+        const breakEven = remLot > 0 ? (d.cost - d.rev) / remLot : 0;
+        const netInv = d.cost - d.rev;
+        const rowId = `det-${sym}`;
+        const isPanelOpen = openDetails.has(rowId);
+
+        body.innerHTML += `
+            <tr onclick="toggleDetails('${rowId}')" style="cursor:pointer;">
+                <td><b>${sym}</b></td>
+                <td>${fmtInt.format(remLot)}</td>
+                <td>${breakEven <= 0 ? "0.00" : fmtFloat.format(breakEven)}</td>
+                <td style="color:#fbbf24; font-weight:bold;">${fmtFloat.format(curP)}</td>
+                <td>${fmtInt.format(val)}</td>
+                <td class="${nPnl >= 0 ? 'text-profit' : 'text-loss'}">${fmtInt.format(nPnl)}</td>
+                <td>${breakEven <= 0 ? '<span style="color:var(--zero); font-weight:bold;">💎 SIFIR</span>' : ''}</td>
+            </tr>
+            <tr id="${rowId}" class="details-row" style="display: ${isPanelOpen ? 'table-row' : 'none'}">
+                <td colspan="7">
+                    <div style="padding:20px; border-left: 4px solid var(--primary); margin: 10px;">
+                        <div class="ana-para-info">Yatırılan Net Ana Para: ${fmtInt.format(netInv)} TL</div>
+                        ${d.history.map(h => `
+                            <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:11px;">
+                                <span>${h.time}</span>
+                                <span class="${h.type=='buy' ? 'text-profit':'text-loss'}">${h.type=='buy'?'AL':'SAT'}</span>
+                                <span>${h.lot} Lot x ${h.prc} TL</span>
+                                <button class="btn-mini-delete" onclick="deleteTransaction(${h.id}); event.stopPropagation();">X</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </td>
+            </tr>`;
+    }
+    document.getElementById('totalVal').innerText = fmtInt.format(gVal) + " TL";
+    document.getElementById('totalPnl').innerText = fmtInt.format(gPnl) + " TL";
+    document.getElementById('totalPnl').className = 's-val ' + (gPnl >= 0 ? 'text-profit' : 'text-loss');
+    updateChart(chartD);
+}
+
+function toggleDetails(id) {
+    const el = document.getElementById(id);
+    if (openDetails.has(id)) { el.style.display = 'none'; openDetails.delete(id); }
+    else { el.style.display = 'table-row'; openDetails.add(id); }
+}
+
+function updateChart(data) {
+    const ctx = document.getElementById('portfolioChart').getContext('2d');
+    if(myChart) {
+        myChart.data.labels = data.labels;
+        myChart.data.datasets[0].data = data.values;
+        myChart.update('none');
+    } else {
+        myChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: { labels: data.labels, datasets: [{ data: data.values, backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'], borderWidth: 0 }] },
+            options: { cutout: '75%', plugins: { legend: { display: false } } }
+        });
+    }
+    const total = data.values.reduce((a,b) => a+b, 0);
+    document.getElementById('chartLegend').innerHTML = data.labels.map((l, i) => `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>● ${l}</span><b>%${((data.values[i]/total)*100).toFixed(1)}</b></div>`).join('');
+}
+
+function addNewMode() { 
+    if(modes.length >= MAX_MODES) return;
+    const id = 'm' + Date.now(); 
+    modes.push({ id, name: 'Portföy ' + (modes.length + 1), data: [] }); 
+    saveAll(); switchMode(id); 
+}
+function switchMode(id) { activeModeId = id; localStorage.setItem('bist_active_mode', id); openDetails.clear(); renderModes(); renderTable(); }
+function renameMode(id, e) { e.stopPropagation(); const newName = prompt("Portföy Adı:", modes.find(m => m.id === id).name); if(newName) { modes.find(m => m.id === id).name = newName; saveAll(); renderModes(); } }
+function deleteMode(id, e) { e.stopPropagation(); if(confirm("Mod silinsin mi?")) { modes = modes.filter(m => m.id !== id); activeModeId = modes[0].id; saveAll(); renderModes(); renderTable(); } }
+function saveAll() { localStorage.setItem('bist_modes', JSON.stringify(modes)); }
+function addTransaction() {
+    const sym = document.getElementById('symbol').value.trim();
+    const type = document.getElementById('type').value;
+    const lot = parseFloat(document.getElementById('lot').value);
+    const prc = parseFloat(document.getElementById('price').value);
+    if(!sym || isNaN(lot) || isNaN(prc)) return;
+    const m = modes.find(m => m.id === activeModeId);
+    m.data.push({ id: Date.now(), sym, type, lot, prc, time: new Date().toLocaleString('tr-TR') });
+    saveAll(); renderTable();
+}
+function deleteTransaction(id) { if(confirm("Silinsin mi?")) { const m = modes.find(m => m.id === activeModeId); m.data = m.data.filter(t => t.id !== id); saveAll(); renderTable(); } }
+
+renderModes();
+setInterval(fetchPrices, 5000);
+window.onload = fetchPrices;
+</script>
+</body>
+</html>
